@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Relatórios — Sedra Gerenciador de Tarefas</title>
+  <style>
+    :root {
+      --bg: #f0f2f5; --panel: #fff; --ink: #172b4d; --muted: #5e6c84;
+      --line: #dfe1e6; --brand: #0052cc; --green: #00875a;
+      --orange: #ff8b00; --red: #de350b; --purple: #5243aa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--ink); }
+    .topbar { display: flex; align-items: center; gap: 12px; padding: 0 16px; height: 56px; background: var(--brand); color: #fff; }
+    .topbar a { color: rgba(255,255,255,.8); font-size: 13px; }
+    .topbar a:hover { color: #fff; }
+    .brand-name { font-weight: 700; font-size: 16px; flex: 1; }
+    .content { max-width: 1100px; margin: 24px auto; padding: 0 16px; display: flex; flex-direction: column; gap: 20px; }
+    h1 { font-size: 22px; font-weight: 800; color: var(--ink); }
+
+    .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .kpi { background: var(--panel); border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(9,30,66,.12); }
+    .kpi-val { font-size: 28px; font-weight: 900; color: var(--brand); }
+    .kpi-label { font-size: 12px; color: var(--muted); margin-top: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+
+    .section { background: var(--panel); border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(9,30,66,.12); }
+    .section-title { font-size: 14px; font-weight: 800; color: var(--ink); margin-bottom: 16px; text-transform: uppercase; letter-spacing: .5px; }
+
+    .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .bar-label { width: 160px; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 0 auto; }
+    .bar-track { flex: 1; height: 20px; background: #ebecf0; border-radius: 4px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 4px; transition: width .4s; }
+    .bar-time { width: 70px; text-align: right; font-size: 12px; color: var(--muted); font-weight: 600; flex: 0 0 auto; }
+
+    .colors-area { --c: #0052cc; }
+    .colors-resp { --c: #00875a; }
+    .colors-prio { --c: #5243aa; }
+    .bar-fill { background: var(--c, var(--brand)); }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; font-weight: 700; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .4px; padding: 8px 10px; border-bottom: 2px solid var(--line); }
+    td { padding: 10px; border-bottom: 1px solid var(--line); }
+    tr:last-child td { border-bottom: 0; }
+    .pct-badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 700; background: #e8f0fe; color: var(--brand); }
+
+    .loading { text-align: center; padding: 48px; color: var(--muted); font-size: 15px; }
+
+    @media (max-width: 640px) { .bar-label { width: 100px; } }
+  </style>
+</head>
+<body>
+
+<header class="topbar">
+  <span class="brand-name">Sedra — Gerenciador de Tarefas</span>
+  <a href="/">← Voltar ao Kanban</a>
+</header>
+
+<div class="content">
+  <h1>📊 Relatórios de Tempo e Produtividade</h1>
+
+  <div class="kpi-row" id="kpiRow">
+    <div class="loading">Carregando dados...</div>
+  </div>
+
+  <div class="section colors-area" id="sectionArea" style="display:none">
+    <div class="section-title">⏱ Tempo por Área</div>
+    <div id="barArea"></div>
+  </div>
+
+  <div class="section colors-resp" id="sectionResp" style="display:none">
+    <div class="section-title">👤 Tempo por Responsável</div>
+    <div id="barResp"></div>
+  </div>
+
+  <div class="section colors-prio" id="sectionPrio" style="display:none">
+    <div class="section-title">🚦 Tempo por Prioridade</div>
+    <div id="barPrio"></div>
+  </div>
+
+  <div class="section" id="sectionTable" style="display:none">
+    <div class="section-title">📋 Resumo completo por Área</div>
+    <table>
+      <thead><tr><th>Área</th><th>Tempo total</th><th>% do total</th></tr></thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function fmtTempo(s){
+  s = Math.floor(s||0);
+  var h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
+  return h+'h '+pad(m)+'m';
+}
+function pad(n){ return n<10?'0'+n:''+n; }
+function pct(v, total){ return total ? Math.round(v/total*100) : 0; }
+
+function renderBars(containerId, items, maxVal, labelKey){
+  var html = '';
+  items.forEach(function(item){
+    var p = maxVal ? Math.max(2, Math.round(item.segundos/maxVal*100)) : 2;
+    html += '<div class="bar-row">'
+      +'<span class="bar-label" title="'+item[labelKey]+'">'+item[labelKey]+'</span>'
+      +'<div class="bar-track"><div class="bar-fill" style="width:'+p+'%"></div></div>'
+      +'<span class="bar-time">'+item.formatado+'</span>'
+      +'</div>';
+  });
+  document.getElementById(containerId).innerHTML = html || '<div style="color:var(--muted);font-size:13px">Sem dados ainda.</div>';
+}
+
+fetch('/api/relatorios').then(function(r){ return r.json(); }).then(function(data){
+  if(!data.ok) return;
+
+  // KPIs
+  var kpis = [
+    { val: data.totalTarefas, label: 'Total de tarefas' },
+    { val: data.emAndamento, label: 'Em andamento' },
+    { val: data.concluidas, label: 'Concluídas' },
+    { val: data.totalFormatado, label: 'Tempo total registrado' },
+  ];
+  var kpiHtml = kpis.map(function(k){
+    return '<div class="kpi"><div class="kpi-val">'+k.val+'</div><div class="kpi-label">'+k.label+'</div></div>';
+  }).join('');
+  document.getElementById('kpiRow').innerHTML = kpiHtml;
+
+  // Barras
+  var maxArea = data.porArea.length ? data.porArea[0].segundos : 0;
+  var maxResp = data.porResponsavel.length ? data.porResponsavel[0].segundos : 0;
+  var maxPrio = data.porPrioridade.length ? data.porPrioridade[0].segundos : 0;
+
+  if(data.porArea.length){
+    renderBars('barArea', data.porArea, maxArea, 'area');
+    document.getElementById('sectionArea').style.display = '';
+  }
+  if(data.porResponsavel.length){
+    renderBars('barResp', data.porResponsavel, maxResp, 'responsavel');
+    document.getElementById('sectionResp').style.display = '';
+  }
+  if(data.porPrioridade.length){
+    renderBars('barPrio', data.porPrioridade, maxPrio, 'prioridade');
+    document.getElementById('sectionPrio').style.display = '';
+  }
+
+  // Tabela
+  if(data.porArea.length){
+    var rows = data.porArea.map(function(item){
+      var p = pct(item.segundos, data.totalSegundos);
+      return '<tr><td>'+item.area+'</td><td>'+item.formatado+'</td><td><span class="pct-badge">'+p+'%</span></td></tr>';
+    }).join('');
+    document.getElementById('tableBody').innerHTML = rows;
+    document.getElementById('sectionTable').style.display = '';
+  }
+});
+</script>
+</body>
+</html>
