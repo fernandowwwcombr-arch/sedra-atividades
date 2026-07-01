@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Controle de Atividades — Sedra</title>
+  <style>
+    :root {
+      --bg: #f6f7f9; --panel: #fff; --ink: #17202a; --muted: #667085;
+      --line: #d9e0e7; --brand: #0f766e; --danger: #b42318;
+      --warn: #b7791f; --ok: #027a48;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; color: var(--ink); background: var(--bg); font-family: Arial, Helvetica, sans-serif; }
+    button, input, select, textarea { font: inherit; }
+    button { border: 0; cursor: pointer; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 22px; background: var(--panel); border-bottom: 1px solid var(--line); }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .logo, .brand-logo { width: 42px; height: 42px; border-radius: 8px; flex: 0 0 auto; }
+    .logo { display: grid; place-items: center; background: var(--brand); color: #fff; font-weight: 700; }
+    .brand-logo { object-fit: contain; }
+    h1 { margin: 0; font-size: 23px; line-height: 1.1; }
+    .subtitle { margin-top: 4px; color: var(--muted); font-size: 13px; }
+    .version { margin-top: 3px; color: var(--muted); font-size: 11px; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+    .btn { min-height: 38px; padding: 0 14px; border-radius: 7px; background: #e8eef2; color: var(--ink); font-weight: 700; }
+    .btn.primary { background: var(--brand); color: #fff; }
+    .btn.danger { background: #fee4e2; color: var(--danger); }
+    .filters { display: grid; grid-template-columns: minmax(220px, 1fr) repeat(5, minmax(130px, 180px)); gap: 12px; padding: 14px 22px; background: var(--panel); border-bottom: 1px solid var(--line); }
+    .field { display: grid; gap: 6px; }
+    label { color: #475467; font-size: 12px; font-weight: 700; }
+    input, select, textarea { width: 100%; min-height: 38px; border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; background: #fff; color: var(--ink); outline: none; }
+    textarea { min-height: 88px; resize: vertical; }
+    .summary { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 12px; padding: 18px 22px 0; }
+    .metric { min-height: 74px; padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+    .metric strong { display: block; font-size: 24px; margin-bottom: 4px; }
+    .metric span { color: var(--muted); font-size: 13px; }
+    .workspace { padding: 18px 22px 24px; }
+    .views { display: flex; gap: 8px; margin-bottom: 14px; }
+    .view-tab { height: 36px; padding: 0 14px; border-radius: 7px; background: transparent; color: #475467; font-weight: 700; }
+    .view-tab.active { background: #fff; color: #115e59; box-shadow: inset 0 0 0 1px var(--line); }
+    .board { display: grid; grid-template-columns: repeat(4, minmax(240px, 1fr)); gap: 14px; align-items: start; overflow-x: auto; }
+    .column { min-height: 340px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #edf1f4; }
+    .column-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-weight: 700; }
+    .count { min-width: 26px; height: 26px; display: grid; place-items: center; border-radius: 999px; background: #fff; color: var(--muted); font-size: 12px; }
+    .task-card { display: grid; gap: 10px; margin-bottom: 10px; padding: 12px; border-left: 5px solid #98a2b3; border-radius: 8px; background: #fff; box-shadow: 0 6px 16px rgba(15,23,42,.08); }
+    .task-card[data-priority="Baixa"] { border-left-color: #16a34a; }
+    .task-card[data-priority="Media"] { border-left-color: #d97706; }
+    .task-card[data-priority="Alta"] { border-left-color: #d92d20; }
+    .task-card[data-priority="Urgente"] { border-left-color: #7f1d1d; }
+    .task-title { display: flex; justify-content: space-between; gap: 8px; font-weight: 700; line-height: 1.25; }
+    .task-actions { display: flex; gap: 5px; flex: 0 0 auto; }
+    .icon-btn { width: 30px; height: 30px; border-radius: 7px; background: #f2f4f7; color: #344054; font-weight: 700; }
+    .description { color: var(--muted); font-size: 13px; line-height: 1.4; white-space: pre-wrap; }
+    .chips, .links { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip, .doc-link { display: inline-flex; align-items: center; min-height: 24px; border-radius: 999px; padding: 0 9px; font-size: 12px; font-weight: 700; text-decoration: none; }
+    .chip { background: #eef4ff; color: #1849a9; }
+    .chip.warn { background: #fff7ed; color: var(--warn); }
+    .chip.danger { background: #fee4e2; color: var(--danger); }
+    .doc-link { border-radius: 7px; background: #ecfdf3; color: var(--ok); }
+    .table-wrap { display: none; overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+    table { width: 100%; min-width: 1040px; border-collapse: collapse; }
+    th, td { padding: 11px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 14px; }
+    th { background: #f8fafc; color: var(--muted); font-size: 12px; text-transform: uppercase; }
+    .empty { min-height: 150px; display: grid; place-items: center; color: var(--muted); text-align: center; }
+    .modal { position: fixed; inset: 0; display: none; place-items: center; padding: 20px; background: rgba(15,23,42,.42); z-index: 10; }
+    .modal.open { display: grid; }
+    .dialog { width: min(760px, 100%); max-height: calc(100vh - 40px); overflow: auto; border-radius: 8px; background: #fff; box-shadow: 0 24px 70px rgba(15,23,42,.3); }
+    .dialog.narrow { width: min(640px, 100%); }
+    .dialog-header, .dialog-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+    .dialog-footer { justify-content: flex-end; border-top: 1px solid var(--line); border-bottom: 0; }
+    .dialog h2 { margin: 0; font-size: 18px; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 18px; }
+    .span-2 { grid-column: span 2; }
+    .toast { position: fixed; right: 18px; bottom: 18px; display: none; max-width: 420px; padding: 12px 14px; border-radius: 8px; background: #101828; color: #fff; z-index: 20; }
+    .toast.show { display: block; }
+    @media (max-width: 980px) { .filters, .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .board { grid-template-columns: repeat(4, 280px); } }
+    @media (max-width: 640px) { .topbar { align-items: stretch; flex-direction: column; } .actions { justify-content: stretch; } .actions .btn { flex: 1 1 auto; } .filters, .summary, .form-grid { grid-template-columns: 1fr; } .span-2 { grid-column: span 1; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="topbar">
+      <div class="brand">
+        <img class="brand-logo" id="brandLogo" alt="Sedra" hidden>
+        <div class="logo" id="logoFallback">S</div>
+        <div>
+          <h1>Controle de Atividades</h1>
+          <div class="subtitle">Sedra</div>
+          <div class="version">Versão 001.26</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="listsBtn" type="button">Listas</button>
+        <button class="btn primary" id="newTaskBtn" type="button">Nova atividade</button>
+      </div>
+    </header>
+
+    <section class="filters">
+      <div class="field"><label for="search">Buscar</label><input id="search" type="search" placeholder="Titulo, area, responsavel ou descricao"></div>
+      <div class="field"><label for="statusFilter">Status</label><select id="statusFilter"></select></div>
+      <div class="field"><label for="areaFilter">Area</label><select id="areaFilter"></select></div>
+      <div class="field"><label for="ownerFilter">Responsavel</label><select id="ownerFilter"></select></div>
+      <div class="field"><label for="priorityFilter">Prioridade</label><select id="priorityFilter"></select></div>
+      <div class="field">
+        <label for="dueFilter">Prazo</label>
+        <select id="dueFilter">
+          <option value="all">Todos</option>
+          <option value="late">Atrasadas</option>
+          <option value="week">Proximos 7 dias</option>
+          <option value="none">Sem prazo</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="summary" id="summary"></section>
+    <section class="workspace">
+      <div class="views">
+        <button class="view-tab active" id="boardViewBtn" type="button">Quadro</button>
+        <button class="view-tab" id="tableViewBtn" type="button">Tabela</button>
+      </div>
+      <div class="board" id="board"></div>
+      <div class="table-wrap" id="tableWrap">
+        <table>
+          <thead>
+            <tr><th>Atividade</th><th>Area</th><th>Responsavel</th><th>Status</th><th>Prioridade</th><th>Prazo</th><th>Links</th><th>Acoes</th></tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <section class="modal" id="taskModal" role="dialog" aria-modal="true">
+    <form class="dialog" id="taskForm">
+      <div class="dialog-header"><h2 id="modalTitle">Nova atividade</h2><button class="icon-btn" id="closeModalBtn" type="button">X</button></div>
+      <div class="form-grid">
+        <input id="taskId" type="hidden">
+        <div class="field span-2"><label for="titleInput">Titulo</label><input id="titleInput" required maxlength="160"></div>
+        <div class="field span-2"><label for="descriptionInput">Descricao</label><textarea id="descriptionInput" maxlength="1200"></textarea></div>
+        <div class="field"><label for="areaInput">Area</label><select id="areaInput"></select></div>
+        <div class="field"><label for="ownerInput">Responsavel</label><select id="ownerInput"></select></div>
+        <div class="field"><label for="statusInput">Status</label><select id="statusInput"></select></div>
+        <div class="field"><label for="priorityInput">Prioridade</label><select id="priorityInput"></select></div>
+        <div class="field"><label for="dueInput">Prazo</label><input id="dueInput" type="date"></div>
+        <div class="field span-2"><label for="notesInput">Observacoes</label><textarea id="notesInput" maxlength="1200"></textarea></div>
+        <div class="field span-2"><label for="linksInput">Links dos documentos</label><textarea id="linksInput" maxlength="2000" placeholder="Um link por linha"></textarea></div>
+      </div>
+      <div class="dialog-footer"><button class="btn" id="cancelBtn" type="button">Cancelar</button><button class="btn primary" type="submit">Salvar</button></div>
+    </form>
+  </section>
+
+  <section class="modal" id="listsModal" role="dialog" aria-modal="true">
+    <form class="dialog narrow" id="listsForm">
+      <div class="dialog-header"><h2>Editar listas</h2><button class="icon-btn" id="closeListsBtn" type="button">X</button></div>
+      <div class="form-grid">
+        <div class="field span-2"><label for="logoUrlInput">Logo (URL da imagem)</label><input id="logoUrlInput" type="url" placeholder="https://..."></div>
+        <div class="field"><label for="areasInput">Areas</label><textarea id="areasInput" placeholder="Uma area por linha"></textarea></div>
+        <div class="field"><label for="ownersInput">Responsaveis</label><textarea id="ownersInput" placeholder="Um responsavel por linha"></textarea></div>
+      </div>
+      <div class="dialog-footer"><button class="btn" id="cancelListsBtn" type="button">Cancelar</button><button class="btn primary" type="submit">Salvar listas</button></div>
+    </form>
+  </section>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    var app = {
+      tasks: [],
+      settings: { statuses: ['A fazer', 'Em andamento', 'Aguardando', 'Concluido'], priorities: ['Baixa', 'Media', 'Alta', 'Urgente'] },
+      lists: { areas: ['Administrativo', 'Comercial', 'Compras', 'Financeiro', 'Operacao', 'Projetos'], responsaveis: ['Sedra'] },
+      logoUrl: '',
+      view: 'board',
+      filters: { search: '', status: 'all', area: 'all', owner: 'all', priority: 'all', due: 'all' }
+    };
+
+    function $(id) { return document.getElementById(id); }
+
+    function api(method, path, body) {
+      return fetch(path, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined
+      }).then(function(r) { return r.json(); });
+    }
+
+    function init() {
+      fillOptions();
+      renderLogo();
+      render();
+      bindEvents();
+      loadFromServer();
+    }
+
+    function bindEvents() {
+      $('newTaskBtn').onclick = function() { openTaskModal(); };
+      $('listsBtn').onclick = openListsModal;
+      $('closeModalBtn').onclick = closeTaskModal;
+      $('cancelBtn').onclick = closeTaskModal;
+      $('closeListsBtn').onclick = closeListsModal;
+      $('cancelListsBtn').onclick = closeListsModal;
+      $('boardViewBtn').onclick = function() { setView('board'); };
+      $('tableViewBtn').onclick = function() { setView('table'); };
+      $('taskForm').onsubmit = saveTask;
+      $('listsForm').onsubmit = saveLists;
+      $('search').oninput = updateFilters;
+      $('statusFilter').onchange = updateFilters;
+      $('areaFilter').onchange = updateFilters;
+      $('ownerFilter').onchange = updateFilters;
+      $('priorityFilter').onchange = updateFilters;
+      $('dueFilter').onchange = updateFilters;
+    }
+
+    function loadFromServer() {
+      api('GET', '/api/dados').then(function(data) {
+        if (data && data.ok) {
+          applyData(data);
+          toast('Dados carregados.');
+        }
+      }).catch(function() { toast('Erro ao carregar dados.'); });
+    }
+
+    function applyData(data) {
+      app.tasks = data.tasks || [];
+      app.settings = data.settings || app.settings;
+      app.lists = data.lists || app.lists;
+      app.logoUrl = data.logoUrl || '';
+      fillOptions();
+      renderLogo();
+      render();
+    }
+
+    function fillOptions() {
+      setOptions($('statusFilter'), ['Todos'].concat(app.settings.statuses), ['all'].concat(app.settings.statuses), app.filters.status);
+      setOptions($('areaFilter'), ['Todas'].concat(app.lists.areas), ['all'].concat(app.lists.areas), app.filters.area);
+      setOptions($('ownerFilter'), ['Todos'].concat(app.lists.responsaveis), ['all'].concat(app.lists.responsaveis), app.filters.owner);
+      setOptions($('priorityFilter'), ['Todas'].concat(app.settings.priorities), ['all'].concat(app.settings.priorities), app.filters.priority);
+      setOptions($('areaInput'), app.lists.areas, app.lists.areas, app.lists.areas[0] || '');
+      setOptions($('ownerInput'), app.lists.responsaveis, app.lists.responsaveis, app.lists.responsaveis[0] || '');
+      setOptions($('statusInput'), app.settings.statuses, app.settings.statuses, app.settings.statuses[0] || '');
+      setOptions($('priorityInput'), app.settings.priorities, app.settings.priorities, 'Media');
+    }
+
+    function setOptions(select, labels, values, selected) {
+      var html = '';
+      for (var i = 0; i < labels.length; i++) {
+        html += '<option value="' + esc(values[i] || '') + '">' + esc(labels[i]) + '</option>';
+      }
+      select.innerHTML = html;
+      select.value = selected;
+    }
+
+    function updateFilters() {
+      app.filters.search = $('search').value.toLowerCase();
+      app.filters.status = $('statusFilter').value;
+      app.filters.area = $('areaFilter').value;
+      app.filters.owner = $('ownerFilter').value;
+      app.filters.priority = $('priorityFilter').value;
+      app.filters.due = $('dueFilter').value;
+      render();
+    }
+
+    function setView(view) {
+      app.view = view;
+      $('boardViewBtn').className = view === 'board' ? 'view-tab active' : 'view-tab';
+      $('tableViewBtn').className = view === 'table' ? 'view-tab active' : 'view-tab';
+      render();
+    }
+
+    function filteredTasks() {
+      return app.tasks.filter(function(task) {
+        var text = [task.titulo, task.descricao, task.area, task.responsavel, task.observacoes, task.links].join(' ').toLowerCase();
+        return (!app.filters.search || text.indexOf(app.filters.search) >= 0)
+          && (app.filters.status === 'all' || task.status === app.filters.status)
+          && (app.filters.area === 'all' || task.area === app.filters.area)
+          && (app.filters.owner === 'all' || task.responsavel === app.filters.owner)
+          && (app.filters.priority === 'all' || task.prioridade === app.filters.priority)
+          && (app.filters.due === 'all'
+            || (app.filters.due === 'late' && isLate(task))
+            || (app.filters.due === 'week' && isThisWeek(task))
+            || (app.filters.due === 'none' && !task.prazo));
+      });
+    }
+
+    function render() {
+      var tasks = filteredTasks();
+      renderSummary(tasks);
+      renderBoard(tasks);
+      renderTable(tasks);
+      $('board').style.display = app.view === 'board' ? 'grid' : 'none';
+      $('tableWrap').style.display = app.view === 'table' ? 'block' : 'none';
+    }
+
+    function renderSummary(tasks) {
+      var done = 0, late = 0, week = 0;
+      tasks.forEach(function(t) {
+        if (t.status === 'Concluido') done++;
+        if (isLate(t)) late++;
+        if (isThisWeek(t)) week++;
+      });
+      $('summary').innerHTML = metric(tasks.length - done, 'Atividades abertas') + metric(done, 'Concluidas') + metric(late, 'Atrasadas') + metric(week, 'Vencem em 7 dias');
+    }
+
+    function metric(value, label) { return '<div class="metric"><strong>' + value + '</strong><span>' + esc(label) + '</span></div>'; }
+
+    function renderBoard(tasks) {
+      var html = '';
+      app.settings.statuses.forEach(function(status) {
+        var cards = '';
+        var count = 0;
+        tasks.forEach(function(task) {
+          if (task.status === status) { count++; cards += renderCard(task); }
+        });
+        html += '<section class="column"><div class="column-header"><span>' + esc(status) + '</span><span class="count">' + count + '</span></div>' + (cards || '<div class="empty">Sem atividades</div>') + '</section>';
+      });
+      $('board').innerHTML = html;
+    }
+
+    function renderCard(task) {
+      return '<article class="task-card" data-priority="' + esc(task.prioridade || '') + '">'
+        + '<div class="task-title"><span>' + esc(task.titulo || '') + '</span><span class="task-actions">'
+        + '<button class="icon-btn" type="button" onclick="editTask(\'' + escAttr(task.id) + '\')">E</button>'
+        + '<button class="icon-btn" type="button" onclick="removeTask(\'' + escAttr(task.id) + '\')">-</button></span></div>'
+        + (task.descricao ? '<div class="description">' + esc(task.descricao) + '</div>' : '')
+        + '<div class="chips">' + chip(task.area) + chip(task.responsavel)
+        + '<span class="chip ' + priorityClass(task) + '">' + esc(task.prioridade || 'Media') + '</span>'
+        + (task.prazo ? '<span class="chip ' + dueClass(task) + '">' + formatDate(task.prazo) + '</span>' : '<span class="chip">Sem prazo</span>') + '</div>'
+        + renderLinks(task.links)
+        + '<select onchange="moveTask(\'' + escAttr(task.id) + '\', this.value)">' + statusOptions(task.status) + '</select>'
+        + '</article>';
+    }
+
+    function renderTable(tasks) {
+      var html = '';
+      tasks.forEach(function(task) {
+        html += '<tr><td><strong>' + esc(task.titulo || '') + '</strong><br><span class="description">' + esc(task.descricao || '') + '</span></td>'
+          + '<td>' + esc(task.area || '') + '</td><td>' + esc(task.responsavel || '') + '</td>'
+          + '<td>' + esc(task.status || '') + '</td><td>' + esc(task.prioridade || '') + '</td>'
+          + '<td>' + (task.prazo ? formatDate(task.prazo) : 'Sem prazo') + '</td>'
+          + '<td>' + renderLinks(task.links) + '</td>'
+          + '<td><button class="btn" type="button" onclick="editTask(\'' + escAttr(task.id) + '\')">Editar</button> '
+          + '<button class="btn danger" type="button" onclick="removeTask(\'' + escAttr(task.id) + '\')">Excluir</button></td></tr>';
+      });
+      $('tableBody').innerHTML = html || '<tr><td colspan="8">Nenhuma atividade encontrada.</td></tr>';
+    }
+
+    function statusOptions(current) {
+      return app.settings.statuses.map(function(s) {
+        return '<option value="' + esc(s) + '"' + (s === current ? ' selected' : '') + '>' + esc(s) + '</option>';
+      }).join('');
+    }
+
+    function chip(value) { return value ? '<span class="chip">' + esc(value) + '</span>' : ''; }
+
+    function openTaskModal(task) {
+      task = task || {};
+      $('modalTitle').textContent = task.id ? 'Editar atividade' : 'Nova atividade';
+      $('taskId').value = task.id || '';
+      $('titleInput').value = task.titulo || '';
+      $('descriptionInput').value = task.descricao || '';
+      setSelectValue($('areaInput'), task.area || app.lists.areas[0] || '');
+      setSelectValue($('ownerInput'), task.responsavel || app.lists.responsaveis[0] || '');
+      $('statusInput').value = task.status || app.settings.statuses[0];
+      $('priorityInput').value = task.prioridade || 'Media';
+      $('dueInput').value = task.prazo || '';
+      $('notesInput').value = task.observacoes || '';
+      $('linksInput').value = task.links || '';
+      $('taskModal').className = 'modal open';
+    }
+
+    function closeTaskModal() { $('taskModal').className = 'modal'; $('taskForm').reset(); }
+
+    function openListsModal() {
+      $('logoUrlInput').value = app.logoUrl || '';
+      $('areasInput').value = app.lists.areas.join('\n');
+      $('ownersInput').value = app.lists.responsaveis.join('\n');
+      $('listsModal').className = 'modal open';
+    }
+
+    function closeListsModal() { $('listsModal').className = 'modal'; $('listsForm').reset(); }
+
+    function saveTask(event) {
+      event.preventDefault();
+      var task = {
+        id: $('taskId').value,
+        titulo: $('titleInput').value,
+        descricao: $('descriptionInput').value,
+        area: $('areaInput').value,
+        responsavel: $('ownerInput').value,
+        status: $('statusInput').value,
+        prioridade: $('priorityInput').value,
+        prazo: $('dueInput').value,
+        observacoes: $('notesInput').value,
+        links: $('linksInput').value
+      };
+      api('POST', '/api/atividade', task).then(function(data) {
+        if (!data.ok) { toast(data.erro || 'Erro ao salvar.'); return; }
+        upsertTask(data.task);
+        addTaskLists(data.task);
+        fillOptions();
+        closeTaskModal();
+        render();
+        toast('Atividade salva.');
+      }).catch(function() { toast('Erro ao salvar.'); });
+    }
+
+    function saveLists(event) {
+      event.preventDefault();
+      var payload = {
+        logoUrl: $('logoUrlInput').value,
+        areas: lines($('areasInput').value),
+        responsaveis: lines($('ownersInput').value)
+      };
+      api('POST', '/api/listas', payload).then(function(data) {
+        if (!data.ok) { toast('Erro ao salvar listas.'); return; }
+        app.lists = data.lists || app.lists;
+        app.logoUrl = data.logoUrl || '';
+        fillOptions();
+        renderLogo();
+        closeListsModal();
+        render();
+        toast('Listas salvas.');
+      }).catch(function() { toast('Erro ao salvar listas.'); });
+    }
+
+    function editTask(id) {
+      var task = app.tasks.find(function(t) { return t.id === id; });
+      if (task) openTaskModal(task);
+    }
+
+    function moveTask(id, status) {
+      api('PUT', '/api/atividade/' + id + '/status', { status: status }).then(function(data) {
+        if (!data.ok) { toast(data.erro || 'Erro ao mover.'); loadFromServer(); return; }
+        upsertTask(data.task);
+        render();
+        toast('Status atualizado.');
+      }).catch(function() { toast('Erro ao mover.'); });
+    }
+
+    function removeTask(id) {
+      var task = app.tasks.find(function(t) { return t.id === id; });
+      if (!task || !confirm('Excluir "' + task.titulo + '"?')) return;
+      api('DELETE', '/api/atividade/' + id).then(function(data) {
+        if (!data.ok) { toast(data.erro || 'Erro ao excluir.'); return; }
+        app.tasks = app.tasks.filter(function(t) { return t.id !== id; });
+        render();
+        toast('Atividade excluida.');
+      }).catch(function() { toast('Erro ao excluir.'); });
+    }
+
+    function upsertTask(task) {
+      var idx = app.tasks.findIndex(function(t) { return t.id === task.id; });
+      if (idx >= 0) app.tasks[idx] = task; else app.tasks.push(task);
+    }
+
+    function addTaskLists(task) {
+      if (task.area && !app.lists.areas.includes(task.area)) app.lists.areas.push(task.area);
+      if (task.responsavel && !app.lists.responsaveis.includes(task.responsavel)) app.lists.responsaveis.push(task.responsavel);
+    }
+
+    function setSelectValue(select, value) {
+      var exists = Array.from(select.options).some(function(o) { return o.value === value; });
+      if (value && !exists) select.innerHTML += '<option value="' + esc(value) + '">' + esc(value) + '</option>';
+      select.value = value;
+    }
+
+    function renderLogo() {
+      if (!app.logoUrl) { $('brandLogo').hidden = true; $('logoFallback').hidden = false; return; }
+      $('brandLogo').src = app.logoUrl;
+      $('brandLogo').hidden = false;
+      $('logoFallback').hidden = true;
+    }
+
+    function renderLinks(value) {
+      var count = 0;
+      var html = String(value || '').split('\n').map(function(link) {
+        link = link.trim();
+        if (/^https?:\/\//i.test(link)) { count++; return '<a class="doc-link" href="' + esc(link) + '" target="_blank" rel="noopener">Documento ' + count + '</a>'; }
+        return '';
+      }).join('');
+      return html ? '<div class="links">' + html + '</div>' : '';
+    }
+
+    function lines(value) {
+      var seen = {};
+      return String(value || '').split('\n').map(function(s) { return s.trim(); }).filter(function(s) {
+        var k = s.toLowerCase();
+        if (!s || seen[k]) return false;
+        seen[k] = true; return true;
+      });
+    }
+
+    function isLate(task) {
+      if (!task.prazo || task.status === 'Concluido') return false;
+      return new Date(task.prazo + 'T00:00:00') < today();
+    }
+    function isThisWeek(task) {
+      if (!task.prazo || task.status === 'Concluido') return false;
+      var due = new Date(task.prazo + 'T00:00:00');
+      var end = today(); end.setDate(end.getDate() + 7);
+      return due >= today() && due <= end;
+    }
+    function dueClass(task) { return isLate(task) ? 'danger' : (isThisWeek(task) ? 'warn' : ''); }
+    function priorityClass(task) { return task.prioridade === 'Alta' || task.prioridade === 'Urgente' ? 'danger' : ''; }
+    function today() { var d = new Date(); d.setHours(0,0,0,0); return d; }
+    function formatDate(value) { var p = String(value).split('-'); return p.length === 3 ? p[2]+'/'+p[1]+'/'+p[0] : value; }
+    function esc(value) { return String(value == null ? '' : value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+    function escAttr(value) { return esc(value).replace(/\\/g,'\\\\'); }
+    function toast(message) {
+      $('toast').textContent = message;
+      $('toast').className = 'toast show';
+      setTimeout(function() { $('toast').className = 'toast'; }, 2600);
+    }
+
+    init();
+  </script>
+</body>
+</html>
